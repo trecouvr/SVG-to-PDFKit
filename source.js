@@ -51,6 +51,7 @@ var SVGtoPDF = function(doc, svg, x, y, options) {
       'word-spacing':       {inherit: true, initial: 0, values: {normal:0}},
       'letter-spacing':     {inherit: true, initial: 0, values: {normal:0}},
       'text-decoration':    {inherit: false, initial: 'none', values: {'none':'none', 'underline':'underline', 'overline':'overline', 'line-through':'line-through'}},
+      'text-transform':     {inherit: false, initial: 'none', values: {'none':'none', 'uppercase':'uppercase', 'lowercase':'lowercase', 'capitalize':'capitalize'}},
       'xml:space':          {inherit: true, initial: 'default', css: 'white-space', values: {'preserve':'preserve', 'default':'default', 'pre':'preserve', 'pre-line':'preserve', 'pre-wrap':'preserve', 'nowrap': 'default'}},
       'marker-start':       {inherit: true, initial: 'none'},
       'marker-mid':         {inherit: true, initial: 'none'},
@@ -1539,6 +1540,7 @@ var SVGtoPDF = function(doc, svg, x, y, options) {
       try {
         image = doc.openImage(link);
       } catch(e) {
+        console.error(e);
         warningCallback('SVGElemImage: failed to open image "' + link + '" in PDFKit');
       }
       if (image) {
@@ -2273,6 +2275,7 @@ var SVGtoPDF = function(doc, svg, x, y, options) {
               letterSpacing = currentElem.get('letter-spacing'),
               textAnchor = currentElem.get('text-anchor'),
               textDirection = currentElem.get('direction'),
+              textTransform = currentElem.get('text-transform'),
               baseline = getBaseline(currentElem._font.font, currentElem._font.size, currentElem.get('alignment-baseline') || currentElem.get('dominant-baseline'), currentElem.get('baseline-shift'));
           if (currentElem.name === 'textPath') {
             doAnchoring();
@@ -2286,7 +2289,18 @@ var SVGtoPDF = function(doc, svg, x, y, options) {
                 recursive(childElem, currentElem);
                 break;
               case '#text': case '#cdata-section':
-                let rawText = childElem.textContent, renderedText = rawText, words;
+                let rawText = childElem.textContent, renderedText, words;
+                if (textTransform === 'lowercase') {
+                  rawText = rawText.toLowerCase();
+                }
+                else if (textTransform === 'uppercase') {
+                  rawText = rawText.toUpperCase();
+                }
+                else if (textTransform === 'capitalize') {
+                  //rawText = rawText.toLowerCase().replace(/\b\w/g, function(l){ return l.toUpperCase() });
+                  rawText = rawText.replace(/[^-\s]+/g, l => { return l[0].toUpperCase() + l.slice(1).toLowerCase()});
+                }
+                renderedText = rawText;
                 childElem._font = currentElem._font;
                 childElem._pos = [];
                 remainingText = remainingText.substring(rawText.length);
@@ -2427,6 +2441,7 @@ var SVGtoPDF = function(doc, svg, x, y, options) {
         viewportHeight = (options.height || doc.page.height) / pxToPt,
         preserveAspectRatio = options.preserveAspectRatio || null, // default to null so that the attr can override if not passed
         useCSS = options.useCSS && typeof SVGElement !== 'undefined' && svg instanceof SVGElement && typeof getComputedStyle === 'function',
+        useCSS = options.useCSS && typeof getComputedStyle === 'function',
         warningCallback = options.warningCallback,
         fontCallback = options.fontCallback,
         imageCallback = options.imageCallback,
